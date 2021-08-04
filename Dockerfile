@@ -1,4 +1,4 @@
-FROM ruby:alpine
+FROM ruby:3.0.2-alpine3.14
 MAINTAINER Eric Carlson
 LABEL maintainer "Eric Carlson <e.carlson94@gmail.com>"
 LABEL org.opencontainers.image.source https://github.com/ecarlson94/userspace
@@ -11,6 +11,8 @@ ARG userspace=userspace.git
 ARG vcsprovider=github.com
 ARG vcsowner=ecarlson94
 ARG azurecliversion=2.26.1
+ARG nvmversion=0.38.0
+ARG nodeversion=14
 
 USER root
 
@@ -30,6 +32,7 @@ RUN \
         ca-certificates \
         libressl \
         git git-doc \
+        python2 \
         python3 \
         python3-dev \
         py3-pip \
@@ -48,7 +51,6 @@ RUN \
         gnupg-scdaemon \
         pcsc-lite \
         gnupg \
-        npm \
         neovim \
         zsh \
         fontconfig \
@@ -61,8 +63,7 @@ RUN \
         go \
     && ln -sf python3 /usr/bin/python \
     && python3 -m ensurepip \
-    && pip3 install --no-cache --upgrade pip setuptools \
-    && npm install -g yarn
+    && pip3 install --no-cache --upgrade pip setuptools
 
 # Install Azure CLI
 RUN \
@@ -76,6 +77,7 @@ RUN \
       /azure-cli/bin/python -m azure.cli \"\$@\"" > /usr/bin/az \
     && chmod +x /usr/bin/az
 
+# Create user to run commands as
 RUN \
     echo "%${group} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
     && adduser -D -G ${group} ${user} \
@@ -92,6 +94,17 @@ RUN \
     && git remote set-url origin git@${vcsprovider}:${vcsowner}/${userspace}
 
 USER ${user}
+
+# Install NVM, Node, and NPM
+RUN \
+    sudo apk add --no-cache bash \
+    && sudo curl -o- https://raw.githubusercontent.com/creationix/nvm/v${nvmversion}/install.sh | bash \
+    && . $HOME/.nvm/nvm.sh \
+    && nvm install ${nodeversion} \
+    && nvm alias default ${nodeversion} \
+    && npm install -g yarn \
+    && sudo apk del bash
+
 ARG ghVersion=1.7.0
 RUN \
     cd $HOME/.dotfiles \
